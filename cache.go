@@ -121,7 +121,7 @@ func (c *Client) Middleware() echo.MiddlewareFunc {
 			}
 			if c.cacheableMethod(ctx.Request().Method) {
 				sortURLParams(ctx.Request().URL)
-				key := generateKey(ctx.Request().URL.String())
+				key := uint64(0)
 				if ctx.Request().Method == http.MethodPost && ctx.Request().Body != nil {
 					body, err := io.ReadAll(ctx.Request().Body)
 					defer ctx.Request().Body.Close()
@@ -132,6 +132,8 @@ func (c *Client) Middleware() echo.MiddlewareFunc {
 					reader := io.NopCloser(bytes.NewBuffer(body))
 					key = generateKeyWithBody(ctx.Request().URL.String(), body)
 					ctx.Request().Body = reader
+				} else {
+					key = generateKey(ctx.Request().URL.String())
 				}
 
 				params := ctx.Request().URL.Query()
@@ -144,8 +146,8 @@ func (c *Client) Middleware() echo.MiddlewareFunc {
 					c.adapter.Release(key)
 				} else {
 					b, ok := c.adapter.Get(key)
-					response := BytesToResponse(b)
 					if ok {
+						response := BytesToResponse(b)
 						if response.Expiration.After(time.Now()) {
 							response.LastAccess = time.Now()
 							response.Frequency++
