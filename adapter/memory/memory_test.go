@@ -118,7 +118,7 @@ func TestSet(t *testing.T) {
 
 		var wg sync.WaitGroup
 		for i := 0; i < 100; i++ {
-			var i uint64 = uint64(i)
+			var i = uint64(i)
 
 			wg.Add(1)
 			go func() {

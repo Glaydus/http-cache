@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	cache "github.com/Glaydus/http-cache"
+	hcache "github.com/Glaydus/http-cache"
 	"github.com/Glaydus/http-cache/adapter/memory"
 
 	"github.com/allegro/bigcache"
@@ -15,7 +15,7 @@ import (
 const maxEntrySize = 256
 
 func BenchmarkHTTPCacheMamoryAdapterSet(b *testing.B) {
-	cache, expiration := initHTTPCacheMamoryAdapter(b.N)
+	cache, expiration := initHTTPCacheMemoryAdapter(b.N)
 	for i := 0; i < b.N; i++ {
 		cache.Set(uint64(i), value(), expiration)
 	}
@@ -30,7 +30,7 @@ func BenchmarkBigCacheSet(b *testing.B) {
 
 func BenchmarkHTTPCacheMamoryAdapterGet(b *testing.B) {
 	b.StopTimer()
-	cache, expiration := initHTTPCacheMamoryAdapter(b.N)
+	cache, expiration := initHTTPCacheMemoryAdapter(b.N)
 	for i := 0; i < b.N; i++ {
 		cache.Set(uint64(i), value(), expiration)
 	}
@@ -55,8 +55,8 @@ func BenchmarkBigCacheGet(b *testing.B) {
 }
 
 func BenchmarkHTTPCacheMamoryAdapterSetParallel(b *testing.B) {
-	cache, expiration := initHTTPCacheMamoryAdapter(b.N)
-	rand.Seed(time.Now().Unix())
+	cache, expiration := initHTTPCacheMemoryAdapter(b.N)
+	rand.New(rand.NewSource(time.Now().Unix()))
 
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Intn(1000)
@@ -70,7 +70,7 @@ func BenchmarkHTTPCacheMamoryAdapterSetParallel(b *testing.B) {
 
 func BenchmarkBigCacheSetParallel(b *testing.B) {
 	cache := initBigCache(b.N)
-	rand.Seed(time.Now().Unix())
+	rand.New(rand.NewSource(time.Now().Unix()))
 
 	b.RunParallel(func(pb *testing.PB) {
 		id := rand.Intn(1000)
@@ -84,7 +84,7 @@ func BenchmarkBigCacheSetParallel(b *testing.B) {
 
 func BenchmarkHTTPCacheMemoryAdapterGetParallel(b *testing.B) {
 	b.StopTimer()
-	cache, expiration := initHTTPCacheMamoryAdapter(b.N)
+	cache, expiration := initHTTPCacheMemoryAdapter(b.N)
 	for i := 0; i < b.N; i++ {
 		cache.Set(uint64(i), value(), expiration)
 	}
@@ -124,7 +124,7 @@ func parallelKey(threadID int, counter int) uint64 {
 	return uint64(threadID)
 }
 
-func initHTTPCacheMamoryAdapter(entries int) (cache.Adapter, time.Time) {
+func initHTTPCacheMemoryAdapter(entries int) (hcache.Adapter, time.Time) {
 	if entries < 2 {
 		entries = 2
 	}

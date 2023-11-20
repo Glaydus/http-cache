@@ -112,62 +112,62 @@ type Adapter interface {
 }
 
 // Middleware is the HTTP cache middleware handler.
-func (client *Client) Middleware() echo.MiddlewareFunc {
+func (c *Client) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			if !client.isAllowedPathToCache(c.Request().URL.String()) {
-				next(c)
+		return func(ctx echo.Context) error {
+			if !c.isAllowedPathToCache(ctx.Request().URL.String()) {
+				next(ctx)
 				return nil
 			}
-			if client.cacheableMethod(c.Request().Method) {
-				sortURLParams(c.Request().URL)
-				key := generateKey(c.Request().URL.String())
-				if c.Request().Method == http.MethodPost && c.Request().Body != nil {
-					body, err := io.ReadAll(c.Request().Body)
-					defer c.Request().Body.Close()
+			if c.cacheableMethod(ctx.Request().Method) {
+				sortURLParams(ctx.Request().URL)
+				key := generateKey(ctx.Request().URL.String())
+				if ctx.Request().Method == http.MethodPost && ctx.Request().Body != nil {
+					body, err := io.ReadAll(ctx.Request().Body)
+					defer ctx.Request().Body.Close()
 					if err != nil {
-						next(c)
+						next(ctx)
 						return nil
 					}
 					reader := io.NopCloser(bytes.NewBuffer(body))
-					key = generateKeyWithBody(c.Request().URL.String(), body)
-					c.Request().Body = reader
+					key = generateKeyWithBody(ctx.Request().URL.String(), body)
+					ctx.Request().Body = reader
 				}
 
-				params := c.Request().URL.Query()
-				if _, ok := params[client.refreshKey]; ok {
-					delete(params, client.refreshKey)
+				params := ctx.Request().URL.Query()
+				if _, ok := params[c.refreshKey]; ok {
+					delete(params, c.refreshKey)
 
-					c.Request().URL.RawQuery = params.Encode()
-					key = generateKey(c.Request().URL.String())
+					ctx.Request().URL.RawQuery = params.Encode()
+					key = generateKey(ctx.Request().URL.String())
 
-					client.adapter.Release(key)
+					c.adapter.Release(key)
 				} else {
-					b, ok := client.adapter.Get(key)
+					b, ok := c.adapter.Get(key)
 					response := BytesToResponse(b)
 					if ok {
 						if response.Expiration.After(time.Now()) {
 							response.LastAccess = time.Now()
 							response.Frequency++
-							client.adapter.Set(key, response.Bytes(), response.Expiration)
+							c.adapter.Set(key, response.Bytes(), response.Expiration)
 
 							for k, v := range response.Header {
-								c.Response().Header().Set(k, strings.Join(v, ","))
+								ctx.Response().Header().Set(k, strings.Join(v, ","))
 							}
-							c.Response().WriteHeader(http.StatusOK)
-							c.Response().Write(response.Value)
+							ctx.Response().WriteHeader(http.StatusOK)
+							ctx.Response().Write(response.Value)
 							return nil
 						}
-						client.adapter.Release(key)
+						c.adapter.Release(key)
 					}
 				}
 
 				resBody := new(bytes.Buffer)
-				mw := io.MultiWriter(c.Response().Writer, resBody)
-				writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}
-				c.Response().Writer = writer
-				if err := next(c); err != nil {
-					c.Error(err)
+				mw := io.MultiWriter(ctx.Response().Writer, resBody)
+				writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: ctx.Response().Writer}
+				ctx.Response().Writer = writer
+				if err := next(ctx); err != nil {
+					ctx.Error(err)
 				}
 
 				statusCode := writer.statusCode
@@ -178,16 +178,16 @@ func (client *Client) Middleware() echo.MiddlewareFunc {
 					response := Response{
 						Value:      value,
 						Header:     writer.Header(),
-						Expiration: now.Add(client.ttl),
+						Expiration: now.Add(c.ttl),
 						LastAccess: now,
 						Frequency:  1,
 					}
-					client.adapter.Set(key, response.Bytes(), response.Expiration)
+					c.adapter.Set(key, response.Bytes(), response.Expiration)
 				}
 				return nil
 			}
-			if err := next(c); err != nil {
-				c.Error(err)
+			if err := next(ctx); err != nil {
+				ctx.Error(err)
 			}
 			return nil
 		}
