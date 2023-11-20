@@ -11,6 +11,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 )
 
 type adapterMock struct {
@@ -47,8 +50,8 @@ func (errReader) Read(p []byte) (n int, err error) {
 
 func TestMiddleware(t *testing.T) {
 	counter := 0
-	httpTestHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(fmt.Sprintf("new value %v", counter)))
+	httpTestHandler := echo.HandlerFunc(func(c echo.Context) error {
+		return c.String(http.StatusOK, fmt.Sprintf("new value %v", counter))
 	})
 
 	adapter := &adapterMock{
@@ -79,7 +82,7 @@ func TestMiddleware(t *testing.T) {
 		ClientWithMethods([]string{http.MethodGet, http.MethodPost}),
 	)
 
-	handler := client.Middleware(httpTestHandler)
+	handler := client.Middleware()(httpTestHandler)
 
 	tests := []struct {
 		name     string
@@ -207,15 +210,19 @@ func TestMiddleware(t *testing.T) {
 				}
 			}
 
-			w := httptest.NewRecorder()
-			handler.ServeHTTP(w, r)
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(r, rec)
 
-			if !reflect.DeepEqual(w.Code, tt.wantCode) {
-				t.Errorf("*Client.Middleware() = %v, want %v", w.Code, tt.wantCode)
+			err = handler(c)
+			assert.Nil(t, err)
+
+			if !reflect.DeepEqual(rec.Code, tt.wantCode) {
+				t.Errorf("*Client.Middleware() = %v, want %v", rec.Code, tt.wantCode)
 				return
 			}
-			if !reflect.DeepEqual(w.Body.String(), tt.wantBody) {
-				t.Errorf("*Client.Middleware() = %v, want %v", w.Body.String(), tt.wantBody)
+			if !reflect.DeepEqual(rec.Body.String(), tt.wantBody) {
+				t.Errorf("*Client.Middleware() = %v, want %v", rec.Body.String(), tt.wantBody)
 			}
 		})
 	}
