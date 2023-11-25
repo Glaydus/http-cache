@@ -24,7 +24,10 @@ func BenchmarkHTTPCacheMamoryAdapterSet(b *testing.B) {
 func BenchmarkBigCacheSet(b *testing.B) {
 	cache := initBigCache(b.N)
 	for i := 0; i < b.N; i++ {
-		cache.Set(strconv.Itoa(i), value())
+		err := cache.Set(strconv.Itoa(i), value())
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -45,12 +48,18 @@ func BenchmarkBigCacheGet(b *testing.B) {
 	b.StopTimer()
 	cache := initBigCache(b.N)
 	for i := 0; i < b.N; i++ {
-		cache.Set(strconv.Itoa(i), value())
+		err := cache.Set(strconv.Itoa(i), value())
+		if err != nil {
+			return
+		}
 	}
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		cache.Get(strconv.Itoa(i))
+		_, err := cache.Get(strconv.Itoa(i))
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -62,7 +71,7 @@ func BenchmarkHTTPCacheMamoryAdapterSetParallel(b *testing.B) {
 		id := rand.Intn(1000)
 		counter := 0
 		for pb.Next() {
-			cache.Set(parallelKey(id, counter), value(), expiration)
+			cache.Set(uint64(id), value(), expiration)
 			counter = counter + 1
 		}
 	})
@@ -76,8 +85,9 @@ func BenchmarkBigCacheSetParallel(b *testing.B) {
 		id := rand.Intn(1000)
 		counter := 0
 		for pb.Next() {
-			cache.Set(strconv.FormatUint(parallelKey(id, counter), 10), value())
-			counter = counter + 1
+			if err := cache.Set(strconv.FormatUint(uint64(id), 10), value()); err == nil {
+				counter = counter + 1
+			}
 		}
 	})
 }
@@ -103,25 +113,25 @@ func BenchmarkBigCacheGetParallel(b *testing.B) {
 	b.StopTimer()
 	cache := initBigCache(b.N)
 	for i := 0; i < b.N; i++ {
-		cache.Set(strconv.Itoa(i), value())
+		err := cache.Set(strconv.Itoa(i), value())
+		if err != nil {
+			return
+		}
 	}
 
 	b.StartTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		counter := 0
 		for pb.Next() {
-			cache.Get(strconv.Itoa(counter))
-			counter = counter + 1
+			if _, err := cache.Get(strconv.Itoa(counter)); err == nil {
+				counter = counter + 1
+			}
 		}
 	})
 }
 
 func value() []byte {
 	return make([]byte, 100)
-}
-
-func parallelKey(threadID int, counter int) uint64 {
-	return uint64(threadID)
 }
 
 func initHTTPCacheMemoryAdapter(entries int) (hcache.Adapter, time.Time) {
