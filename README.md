@@ -23,8 +23,8 @@ import (
     "os"
     "time"
 
-    "github.com/Glaydus/http-cache"
-    "github.com/Glaydus/http-cache/adapter/memory"
+    "github.com/glaydus/http-cache"
+    "github.com/glaydus/http-cache/adapter/memory"
 )
 
 func example(c echo.Context) {
